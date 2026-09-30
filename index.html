@@ -120,7 +120,9 @@ async function toggleFollow(id){let us=await users(),u=us.find(x=>x.id===id),me=
 async function comment(id){let input=$('#comment'),t=input?.value.trim();if(!t)return;let vs=await allVideos(),v=vs.find(x=>x.id===id);v.comments=v.comments||[];v.comments.unshift({id:uid(),text:t,created:Date.now(),user:{id:state.user.id,name:state.user.name,avatar:state.user.avatar}});await saveVideos(vs);render()}
 async function channel(id){
  let u=await owner(id),vs=(await allVideos()).filter(v=>v.owner===id).sort((a,b)=>b.created-a.created),own=id===state.user.id;
- $('#main').innerHTML=`<div class="profile-head"><img class="bigavatar" src="${avatar(u)}"><div><h1>${esc(u.name)}</h1><div class="handle">${esc(u.handle)} · ${fmt(u.subs||0)} subscribers</div><div class="muted">${vs.length} videos</div></div><div style="margin-left:auto">${own?'<button class="btn" onclick="editChannel()">Customize channel</button>':`<button class="btn ${((state.user.following||[]).includes(id))?'':'primary'}" onclick="toggleFollow('${id}')">${((state.user.following||[]).includes(id))?'Subscribed':'Subscribe'}</button>`}</div></div><div class="tabs"><button class="tab active">Videos</button>${own?'<button class="tab" onclick="go(\\'analytics\\')">Analytics</button>':''}</div>${cards(vs)}`;
+ let action=own?'<button class="btn" onclick="editChannel()">Customize channel</button>':'<button class="btn primary" onclick="toggleFollow(\''+id+'\')">Subscribe</button>';
+ let tabs='<div class="tabs"><button class="tab active">Videos</button>'+(own?'<button class="tab" onclick="go(\'analytics\')">Analytics</button>':'')+'</div>';
+ $('#main').innerHTML='<div class="profile-head"><img class="bigavatar" src="'+avatar(u)+'"><div><h1>'+esc(u.name)+'</h1><div class="handle">'+esc(u.handle)+' · '+fmt(u.subs||0)+' subscribers</div><div class="muted">'+vs.length+' videos</div></div><div style="margin-left:auto">'+action+'</div></div>'+tabs+await cards(vs);
 }
 async function analytics(){
  let vs=(await allVideos()).filter(v=>v.owner===state.user.id),views=vs.reduce((a,v)=>a+(v.views||0),0),likes=vs.reduce((a,v)=>a+(v.likes?.length||0),0),comments=vs.reduce((a,v)=>a+(v.comments?.length||0),0);
@@ -137,8 +139,8 @@ async function publishVideo(){
  let video=document.createElement('video'),url=URL.createObjectURL(f);video.src=url;
  await new Promise(r=>video.onloadedmetadata=r);
  let thumbFile=$('#thumbfile').files[0],thumb=thumbFile?await readData(thumbFile):'';
- let blob=await f.arrayBuffer();
- let rec={id:uid(),owner:state.user.id,title:$('#vtitle').value.trim()||f.name.replace(/\.[^.]+$/,''),description:$('#vdesc').value.trim(),video:new Blob([blob],{type:f.type}),thumb,created:Date.now(),views:0,likes:[],comments:[],short:(video.videoWidth/video.videoHeight)<1};
+ let videoData=await readData(f);
+ let rec={id:uid(),owner:state.user.id,title:$('#vtitle').value.trim()||f.name.replace(/\.[^.]+$/,''),description:$('#vdesc').value.trim(),video:videoData,thumb,created:Date.now(),views:0,likes:[],comments:[],short:(video.videoWidth/video.videoHeight)<1};
  let vs=await allVideos();vs.push(rec);await saveVideos(vs);closeModal();toast(rec.short?'Published as a Short!':'Video published!');state.page=rec.short?'shorts':'channel';render();
 }
 function readData(file){return new Promise((res,rej)=>{let r=new FileReader;r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)})}
@@ -156,7 +158,8 @@ function showSignup(){
 async function signup(){
  let us=await users(),e=$('#se').value.trim().toLowerCase(),p=$('#sp').value,n=$('#sn').value.trim(),h=$('#sh').value.trim();if(!e||!p||!n){toast('Fill in all required fields');return}if(us.some(x=>x.email===e)){toast('That email is already registered');return}if(!h.startsWith('@'))h='@'+h;let u={id:uid(),email:e,password:p,name:n,handle:h,avatar:null,subs:0,following:[],created:Date.now()};us.push(u);await saveUsers(us);state.user=u;await put('session',u);state.page='home';render()}
 async function logout(){state.user=null;await del('session');render()}
-init();
+window.addEventListener('error',e=>{console.error(e.error||e.message);const r=document.getElementById('root');if(r&&!r.innerHTML.trim())r.innerHTML='<div class="login"><div class="loginbox"><div class="logo">Me<span>Tub</span></div><h2>MeTub could not start</h2><p class="muted">Open the browser console (F12 → Console) for the error details.</p><button class="btn primary" onclick="location.reload()">Reload</button></div></div>'});
+init().catch(e=>{console.error(e);document.getElementById('root').innerHTML='<div class="login"><div class="loginbox"><div class="logo">Me<span>Tub</span></div><h2>MeTub could not start</h2><p class="muted">There was a browser storage error. Try opening this page directly in Chrome or Edge, then reload it.</p><button class="btn primary" onclick="location.reload()">Reload</button></div></div>'});
 </script>
 </body>
 </html>
